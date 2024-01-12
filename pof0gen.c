@@ -12,19 +12,18 @@
 int out(FILE *p, int cursor, int diff)
 {
 	static int count = 0;
-	int sp;
-	sp = (cursor - diff)>>2;
+	int sp = cursor - diff;
 	if (sp <= 0xFC) {
-		sp |= 0x40;
+		sp = (sp >> 2) | 0x40;
 		fwrite(&sp, sizeof(char), 1, p);
 		count++;
 	} else if (sp <= 0xFFFC) {
-		sp |= 0x8000;
+		sp = (sp >> 2) | 0x8000;
 		sp = htobe16(sp);
 		fwrite(&sp, sizeof(char), 2, p);
 		count += 2;
 	} else {
-		sp |= 0xC0000000;
+		sp = (sp >> 2) | 0xC0000000;
 		sp = htobe32(sp);
 		fwrite(&sp, sizeof(char), 4, p);
 		count += 4;
@@ -104,7 +103,6 @@ void generate_pof0(FILE *f, FILE *p)
 
 	// Iterate meshes extracting per-mesh offsets	
 	for (int i = 0; i < mesh_count; i++) {
-		//printf("\t%d\n", i);
 		// start of mesh data
 		fseek(f, mesh_offset + FILE_HEADER + 180 * i, SEEK_SET);
 		// jump to relevant offsets for the given mesh
@@ -141,7 +139,7 @@ void generate_pof0(FILE *f, FILE *p)
 	// Iterate meshes extracting per-mesh info.
 	// Separate loop to keep the offsets in ascending order.
 	for (int i = 0; i < mesh_count; i++) {
-		int draw_counts;
+		int draw_counts, tex_counts;
 		// start of mesh data
 		// start of mesh data
 		fseek(f, mesh_offset + FILE_HEADER + 180 * i, SEEK_SET);
@@ -153,34 +151,32 @@ void generate_pof0(FILE *f, FILE *p)
 		//printf("draw counts: %.2X\n", draw_counts);
 
 		// jump over to the next relevant section 
-		fseek(f, 140, SEEK_CUR);
+		fseek(f, 136, SEEK_CUR);
+		fread(&tex_counts, 1, sizeof(int), f); // tex counts
+		tex_counts = htobe32(tex_counts);
 
 		temp = cursor;
-		cursor = ftell(f);
 		fread(&temp1, 1, sizeof(int), f); // tex offsets
 		cursor = htobe32(temp1) + 8;
-		//printf("%.2X\n", cursor);
-		out(p, cursor, temp);
+		for (int j = 0; j < tex_counts; j++) {
+			out(p, cursor + 4*j, temp);
+			temp = cursor + 4*j;
+		}
 
 		// jump back
 		fseek(f, -48, SEEK_CUR);
 
-		temp = cursor;
-		cursor = ftell(f);
+		//temp = cursor;
 		fread(&temp1, 1, sizeof(int), f); // vertex offsets
 		cursor = htobe32(temp1) + 8;
-		//printf("%.2X\n", cursor);
 		out(p, cursor, temp);
 
 		// jump forward again
 		fseek(f, 44, SEEK_CUR);
 
 		temp = cursor;
-		cursor = ftell(f);
 		fread(&temp1, 1, sizeof(int), f); // draw offsets
 		cursor = htobe32(temp1) + 16;
-		//printf("%d vs %d\n", temp, cursor);
-		//printf("%.2X\n", cursor);
 		out(p, cursor, temp);
 
 		int draw_offsets = cursor;
