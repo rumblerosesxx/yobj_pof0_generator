@@ -31,6 +31,34 @@ int out(FILE *p, int cursor, int diff)
 	return count;
 }
 
+int validate_pof0(FILE *f, FILE *p)
+{
+	int pof0_offset, len, val1, val2;
+	unsigned char word[4];
+
+	fseek(f, 4, SEEK_SET);
+	fread(&pof0_offset, 1, sizeof(int), f);
+	pof0_offset = htobe32(pof0_offset); 
+	fseek(f, pof0_offset, SEEK_CUR);
+	fread(&word, 1, sizeof(int), f);
+	if (strncmp(word, "POF0", 4) != 0) {
+		printf("Invalid POF0 offset\n");
+		return 1;
+	}
+	fseek(f, -8, SEEK_CUR);
+	fread(&len, 1, sizeof(int), f);
+	len = htobe32(len) + 8; 
+	for (int i = 0; i < len; i++) {
+		fread(&val1, sizeof(int), 1, f);	
+		fread(&val2, sizeof(int), 1, p);	
+		if (val1 != val2) {
+			printf("Values at position %d differ, %x != %x\n", i, val1, val2);
+			return 1;
+		}
+	}
+	return 0;
+}
+
 void generate_pof0(FILE *f, FILE *p)
 {
 	int byte_count = 0;
@@ -189,11 +217,14 @@ void generate_pof0(FILE *f, FILE *p)
 
 	// Pad to 4 byte boundary
 	int pad = 0;
-	fwrite(&pad, sizeof(char), 4 - (byte_count % 4), p);
+	int rem = byte_count % 4;
+	if (rem != 0) {
+		fwrite(&pad, sizeof(char), 4 - rem, p);
+		byte_count += 4 - rem;
+	}
 
 	// And finally go back to write the size
 	fseek(p, 4, SEEK_SET);
-	byte_count += (4 - (byte_count % 4));
 	byte_count = htobe32(byte_count);
 	fwrite(&byte_count, sizeof(int), 1, p);
 	/*
@@ -225,8 +256,22 @@ int main(int argc, char * argv[])
         return 1;
     }
     generate_pof0(yobj_file, pof0_file);
-    fclose(yobj_file);
     fclose(pof0_file);
+
+    /*
+    // validate
+    pof0_file = fopen(argv[2], "rb");
+    if (!yobj_file)
+    {
+        printf("Cannot open %s\n", argv[2]);
+        return 1;
+    }
+    int rv = validate_pof0(yobj_file, pof0_file);
+    if (rv != 0) return rv;
+    fclose(pof0_file);
+    */
+
+    fclose(yobj_file);
 
     return 0;
 }
