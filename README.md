@@ -27,3 +27,7 @@ Reverse engineering was made possible by the POF0 decoder written by eatrawmeat3
 anonymous loverslab member, with credit to mariokart64n for the original maxscript.
 The former made it possible to identify which offsets the POF0 is referencing while
 the latter helped provide clues as to what those offsets represent inside the file.
+
+NOTE: this overall process should work for YOBJ files for games other than RRXX,
+such as SVR, etc. but I expect there are endianness issues that will require small
+tweaks to this code to make it work with YOBJ from other games/platforms.
