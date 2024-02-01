@@ -1,4 +1,4 @@
-#include <endian.h>
+#include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -19,12 +19,12 @@ int out(FILE *p, int cursor, int diff)
 		count++;
 	} else if (sp <= 0xFFFC) {
 		sp = (sp >> 2) | 0x8000;
-		sp = htobe16(sp);
+		sp = htons(sp);
 		fwrite(&sp, sizeof(char), 2, p);
 		count += 2;
 	} else {
 		sp = (sp >> 2) | 0xC0000000;
-		sp = htobe32(sp);
+		sp = htonl(sp);
 		fwrite(&sp, sizeof(char), 4, p);
 		count += 4;
 	}
@@ -38,7 +38,7 @@ int validate_pof0(FILE *f, FILE *p)
 
 	fseek(f, 4, SEEK_SET);
 	fread(&pof0_offset, 1, sizeof(int), f);
-	pof0_offset = htobe32(pof0_offset); 
+	pof0_offset = ntohl(pof0_offset); 
 	fseek(f, pof0_offset, SEEK_CUR);
 	fread(&word, 1, sizeof(int), f);
 	if (strncmp(word, "POF0", 4) != 0) {
@@ -47,7 +47,7 @@ int validate_pof0(FILE *f, FILE *p)
 	}
 	fseek(f, -8, SEEK_CUR);
 	fread(&len, 1, sizeof(int), f);
-	len = htobe32(len) + 8; 
+	len = ntohl(len) + 8; 
 	for (int i = 0; i < len; i++) {
 		fread(&val1, sizeof(int), 1, f);	
 		fread(&val2, sizeof(int), 1, p);	
@@ -82,49 +82,49 @@ void generate_pof0(FILE *f, FILE *p)
 		return;
 	}
 	fread(&pof0_offset, 1, sizeof(int), f);
-	pof0_offset = htobe32(pof0_offset);
+	pof0_offset = ntohl(pof0_offset);
 	//printf("pof0 offset: %.8X\n", pof0_offset);
 	fread(&temp, 1, sizeof(int), f); // zero
 	fread(&temp, 1, sizeof(int), f); // pof0 offset again
-	if (htobe32(temp) != pof0_offset) {
+	if (ntohl(temp) != pof0_offset) {
 		printf("Invalid YOBJ file, second pof0 offset different from first\n");
 		return;
 	}
 	fread(&temp, 1, sizeof(int), f); // zero
 	fread(&temp, 1, sizeof(int), f); // zero
 	fread(&mesh_count, 1, sizeof(int), f);
-	mesh_count = htobe32(mesh_count);
+	mesh_count = ntohl(mesh_count);
 
 	cursor = ftell(f);
 	out(p, cursor, FILE_HEADER);
 	fread(&mesh_offset, 1, sizeof(int), f);
-	mesh_offset = htobe32(mesh_offset);
+	mesh_offset = ntohl(mesh_offset);
 
 	fread(&bone_count, 1, sizeof(int), f);
-	bone_count = htobe32(bone_count);
+	bone_count = ntohl(bone_count);
 	fread(&tex_count, 1, sizeof(int), f);
-	tex_count = htobe32(tex_count);
+	tex_count = ntohl(tex_count);
 
 	temp = cursor;
 	cursor = ftell(f);
 	out(p, cursor, temp);
 	fread(&bone_offset, 1, sizeof(int), f);
-	bone_offset = htobe32(bone_offset);
+	bone_offset = ntohl(bone_offset);
 
 	temp = cursor;
 	cursor = ftell(f);
 	out(p, cursor, temp);
 	fread(&texname_offset, 1, sizeof(int), f);
-	texname_offset = htobe32(texname_offset);
+	texname_offset = ntohl(texname_offset);
 
 	temp = cursor;
 	cursor = ftell(f);
 	out(p, cursor, temp);
 	fread(&obj_groupname_offset, 1, sizeof(int), f);
-	obj_groupname_offset = htobe32(obj_groupname_offset);
+	obj_groupname_offset = ntohl(obj_groupname_offset);
 
 	fread(&obj_group_count, 1, sizeof(int), f);
-	obj_group_count = htobe32(obj_group_count);
+	obj_group_count = ntohl(obj_group_count);
 
 	fread(&temp, 1, sizeof(int), f); // zero
 	fread(&temp, 1, sizeof(int), f); // zero
@@ -169,23 +169,22 @@ void generate_pof0(FILE *f, FILE *p)
 	for (int i = 0; i < mesh_count; i++) {
 		int draw_counts, tex_counts;
 		// start of mesh data
-		// start of mesh data
 		fseek(f, mesh_offset + FILE_HEADER + 180 * i, SEEK_SET);
 		fread(&temp1, 1, sizeof(int), f); // vertex counts
-		temp1 = htobe32(temp1);
+		temp1 = ntohl(temp1);
 		//printf("vertex counts: %.2X\n", temp1);
 		fread(&draw_counts, 1, sizeof(int), f); // draw counts
-		draw_counts = htobe32(draw_counts);
+		draw_counts = ntohl(draw_counts);
 		//printf("draw counts: %.2X\n", draw_counts);
 
 		// jump over to the next relevant section 
 		fseek(f, 136, SEEK_CUR);
 		fread(&tex_counts, 1, sizeof(int), f); // tex counts
-		tex_counts = htobe32(tex_counts);
+		tex_counts = ntohl(tex_counts);
 
 		temp = cursor;
 		fread(&temp1, 1, sizeof(int), f); // tex offsets
-		cursor = htobe32(temp1) + 8;
+		cursor = ntohl(temp1) + 8;
 		for (int j = 0; j < tex_counts; j++) {
 			out(p, cursor + 4*j, temp);
 			temp = cursor + 4*j;
@@ -196,7 +195,7 @@ void generate_pof0(FILE *f, FILE *p)
 
 		//temp = cursor;
 		fread(&temp1, 1, sizeof(int), f); // vertex offsets
-		cursor = htobe32(temp1) + 8;
+		cursor = ntohl(temp1) + 8;
 		out(p, cursor, temp);
 
 		// jump forward again
@@ -204,7 +203,7 @@ void generate_pof0(FILE *f, FILE *p)
 
 		temp = cursor;
 		fread(&temp1, 1, sizeof(int), f); // draw offsets
-		cursor = htobe32(temp1) + 16;
+		cursor = ntohl(temp1) + 16;
 		out(p, cursor, temp);
 
 		int draw_offsets = cursor;
@@ -225,7 +224,7 @@ void generate_pof0(FILE *f, FILE *p)
 
 	// And finally go back to write the size
 	fseek(p, 4, SEEK_SET);
-	byte_count = htobe32(byte_count);
+	byte_count = htonl(byte_count);
 	fwrite(&byte_count, sizeof(int), 1, p);
 	/*
 	printf("mesh count: %.2X @%02X\n", mesh_count, mesh_offset);
@@ -258,7 +257,7 @@ int main(int argc, char * argv[])
     generate_pof0(yobj_file, pof0_file);
     fclose(pof0_file);
 
-    /*
+#if 0
     // validate
     pof0_file = fopen(argv[2], "rb");
     if (!yobj_file)
@@ -269,7 +268,8 @@ int main(int argc, char * argv[])
     int rv = validate_pof0(yobj_file, pof0_file);
     if (rv != 0) return rv;
     fclose(pof0_file);
-    */
+    printf("validated ok\n");
+#endif
 
     fclose(yobj_file);
 

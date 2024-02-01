@@ -1,5 +1,5 @@
-clean:
-	rm encoder
-
-encoder: pof0gen.c
+pof0gen: pof0gen.c
 	gcc -o $@ $?
+
+clean:
+	rm -f pof0gen
